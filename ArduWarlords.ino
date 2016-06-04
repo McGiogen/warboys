@@ -131,24 +131,30 @@ void moveBall()
     }
 
     //Lose a life if bottom edge hit
-    if (yb >= 64)
+    if (yb >= 62)
     {
-      arduboy.drawRect(xPaddle, 63, 11, 1, 0);
-      xPaddle = 54;
       yb = 60;
-      released = false;
-      lives--;
-      drawLives();
-      arduboy.tunes.tone(175, 250);
-      if (random(0, 2) == 0)
-      {
-        dx = 1;
-      }
-      else
-      {
-        dx = -1;
-      }
+      dy = -dy;
+      arduboy.tunes.tone(523, 250);
     }
+//    if (yb >= 64)
+//    {
+//      arduboy.drawRect(xPaddle, 63, 11, 1, 0);
+//      xPaddle = 54;
+//      yb = 60;
+//      released = false;
+//      lives--;
+//      drawLives();
+//      arduboy.tunes.tone(175, 250);
+//      if (random(0, 2) == 0)
+//      {
+//        dx = 1;
+//      }
+//      else
+//      {
+//        dx = -1;
+//      }
+//    }
 
     //Bounce off left side
     if (xb <= 0)
