@@ -1,4 +1,4 @@
-b/*
+/*
   Breakout
   Copyright (C) 2011 Sebastian Goscik
   All rights reserved.
@@ -14,8 +14,14 @@ b/*
 
 Arduboy arduboy;
 
-const unsigned int COLUMNS = 11; //Columns of bricks
-const unsigned int ROWS = 2;     //Rows of bricks
+#define SCREEN_MAX_X 127
+#define SCREEN_MAX_Y 63
+
+#define COLUMNS 9          //Columns of bricks
+#define ROWS 2              //Rows of bricks
+#define BLOCK_LENGTH 4      //Rows of bricks
+#define NUM_PLAYERS 4       //Number of players
+
 int dx = -1;        //Initial movement of ball
 int dy = -1;        //Initial movement of ball
 int xb;           //Balls starting possition
@@ -23,7 +29,7 @@ int yb;           //Balls starting possition
 boolean released;     //If the ball has been released by the player
 boolean paused = false;   //If the game has been paused
 byte xPaddle;       //X position of paddle
-boolean isHit[ROWS][COLUMNS + ROWS * 2]; //Array of if bricks are hit or not
+boolean isHit[NUM_PLAYERS][ROWS][COLUMNS + ROWS * 2]; //Array of if bricks are hit or not
 boolean bounced = false; //Used to fix double bounce glitch
 byte lives = 3;       //Amount of lives
 byte level = 1;       //Current level
@@ -173,20 +179,22 @@ void moveBall()
     }
 
     //Bounce off Bricks
-    for (byte lineIndex = 0; lineIndex < ROWS; lineIndex++)
-    {
+    Block block;
+    for (byte player = 0; player < NUM_PLAYERS; player++) {
+      for (byte lineIndex = 0; lineIndex < ROWS; lineIndex++)
+      {
       byte lineBlocks = COLUMNS + lineIndex * 2;
       for (byte blockIndex = 0; blockIndex < lineBlocks; blockIndex++)
       {
-        if (!isHit[lineIndex][blockIndex])
+        if (!isHit[player][lineIndex][blockIndex])
         {
           //Sets Brick bounds
-          getBlock(lineIndex, blockIndex);
+          block = getBlock(lineIndex, blockIndex, player);
 
           leftBrick = block.x;
-          rightBrick = block.x + 4;
+          rightBrick = block.x + BLOCK_LENGTH;
           topBrick = block.y;
-          bottomBrick = block.y + 4;
+          bottomBrick = block.y + BLOCK_LENGTH;
 
           //If A collison has occured
           if (topBall <= bottomBrick && bottomBall >= topBrick &&
@@ -194,8 +202,8 @@ void moveBall()
           {
             Score();
             brickCount++;
-            isHit[lineIndex][blockIndex] = true;
-            arduboy.drawRect(x, y, 4, 4, 0);
+            isHit[player][lineIndex][blockIndex] = true;
+            arduboy.drawRect(block.x, block.y, BLOCK_LENGTH, BLOCK_LENGTH, 0);
 
             //Vertical collision
             if (bottomBall > bottomBrick || topBall < topBrick)
@@ -225,6 +233,7 @@ void moveBall()
           }
         }
       }
+    }
     }
     //Reset Bounce
     bounced = false;
@@ -349,13 +358,16 @@ void newLevel() {
   released = false;
 
   //Draws new bricks and resets their values
-  for (byte lineIndex = 0; lineIndex < ROWS; lineIndex++) {
-    byte lineBlocks = COLUMNS + lineIndex * 2;
-    for (byte blockIndex = 0; blockIndex < lineBlocks; blockIndex++)
-    {
-      isHit[lineIndex][blockIndex] = false;
-      getBlock(lineIndex, blockIndex);
-      arduboy.drawRect(block.x, block.y, 4, 4, 1);
+  Block block;
+  for (byte player = 0; player < NUM_PLAYERS; player++) {
+    for (byte lineIndex = 0; lineIndex < ROWS; lineIndex++) {
+      byte lineBlocks = COLUMNS + lineIndex * 2;
+      for (byte blockIndex = 0; blockIndex < lineBlocks; blockIndex++)
+      {
+        isHit[player][lineIndex][blockIndex] = false;
+        block = getBlock(lineIndex, blockIndex, player);
+        arduboy.drawRect(block.x, block.y, BLOCK_LENGTH, BLOCK_LENGTH, 1);
+      }
     }
   }
 
@@ -746,17 +758,28 @@ void loop()
   arduboy.display();
 }
 
-Block getBlock(int lineIndex, int blockIndex) {
-  byte lineBlocks = COLUMNS + lineIndex * 2;
+Block getBlock(byte lineIndex, byte blockIndex, byte player) {
+  boolean reverse_x = player % 2 == 1;   //players 1 and 3
+  boolean reverse_y = player >= 2;       //players 2 and 3
+  
+  byte lineBlocks = COLUMNS + lineIndex * 2; 
   if (blockIndex <= lineBlocks / 2 - 1) {
     //Draw vertical blocks
-    block.x = lineBlocks / 2 * 4;
-    block.y = 4 * blockIndex;
+    block.x = lineBlocks / 2 * BLOCK_LENGTH;
+    block.y = BLOCK_LENGTH * blockIndex;
   } else {
     //Draw horizontal blocks
-    block.x = 4 * blockIndex - (lineBlocks / 2 * 4);
-    block.y = (lineBlocks / 2 * 4);
+    block.x = BLOCK_LENGTH * blockIndex - (lineBlocks / 2 * BLOCK_LENGTH);
+    block.y = (lineBlocks / 2 * BLOCK_LENGTH);
   }
+
+  if (reverse_x) {
+    block.x = SCREEN_MAX_X - block.x - BLOCK_LENGTH;
+  }
+  if (reverse_y) {
+    block.y = SCREEN_MAX_Y - block.y - BLOCK_LENGTH;
+  }
+  
   return block;
 }
 
