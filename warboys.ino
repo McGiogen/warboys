@@ -291,9 +291,11 @@ void drawBall()
 
 void drawPaddle()
 {
-  arduboy.drawRect(xPaddle, 63, 11, 1, 0);
+  arduboy.fillTriangle(xPaddle, 63, xPaddle + 4, 63, xPaddle + 2, 60, 0);
+//  arduboy.drawRect(xPaddle, 63, 11, 1, 0);
   movePaddle();
-  arduboy.drawRect(xPaddle, 63, 11, 1, 1);
+//  arduboy.drawRect(xPaddle, 63, 11, 1, 1);
+  arduboy.fillTriangle(xPaddle, 63, xPaddle + 4, 63, xPaddle + 2, 60, 1);
 }
 
 void drawLives()
