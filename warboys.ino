@@ -173,7 +173,7 @@ void moveBall()
     }
 
     //Bounce off paddle
-    if (xb + 1 >= xPaddle && xb <= xPaddle + 12 && yb + 2 >= 63 && yb <= 64)
+    if (xb + 1 >= xPaddle && xb <= xPaddle + 5 && yb + 2 >= 63 && yb <= 64)
     {
       dy = -dy;
       dx = ((xb - (xPaddle + 6)) / 3); //Applies spin on the ball
@@ -351,7 +351,7 @@ void Score()
 
 void newLevel() {
   //Undraw paddle
-  arduboy.drawRect(xPaddle, 63, 11, 1, 0);
+  arduboy.fillTriangle(xPaddle, 63, xPaddle + 4, 63, xPaddle + 2, 60, 0);
 
   //Undraw ball
   arduboy.drawPixel(xb,   yb,   0);
