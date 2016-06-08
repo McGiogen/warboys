@@ -28,8 +28,8 @@ int xb;           //Balls starting possition
 int yb;           //Balls starting possition
 boolean released;     //If the ball has been released by the player
 boolean paused = false;   //If the game has been paused
-byte xPaddle;       //X position of paddle
-int paddle_distance = (COLUMNS + (ROWS * 2)) / 2 * BLOCK_LENGTH + 2;  // (lineBlocks/2) * block_length + span
+int paddle_fixed_distance = (COLUMNS + (ROWS * 2)) / 2 * BLOCK_LENGTH + 2;  // (lineBlocks/2) * block_length + span   //Fixed distance of the paddle from borders
+byte paddle_movement;       //X position of paddle
 boolean isHit[NUM_PLAYERS][ROWS][COLUMNS + ROWS * 2]; //Array of if bricks are hit or not
 boolean bounced = false; //Used to fix double bounce glitch
 byte lives = 3;       //Amount of lives
@@ -57,10 +57,16 @@ byte bottomBrick;
 
 byte tick;
 
-struct Block {
+struct Coordinates {
   int x;
   int y;
 } block;
+
+struct Paddle {
+  Coordinates v1;
+  Coordinates v2;
+  Coordinates v3;
+};
 
 #include "pins_arduino.h" // Arduino pre-1.0 needs this
 
@@ -83,20 +89,24 @@ void intro()
 void movePaddle()
 {
   //Move right
-  if (xPaddle < WIDTH - 12)
+  byte maxMovement = paddle_fixed_distance * 2 - 1;
+  if (paddle_movement < maxMovement)
   {
     if (arduboy.pressed(RIGHT_BUTTON))
     {
-      xPaddle += 2;
+      paddle_movement += 2;
+      paddle_movement = paddle_movement > maxMovement ? maxMovement : paddle_movement;
     }
   }
 
   //Move left
-  if (xPaddle > 0)
+  byte minMovement = 1;
+  if (paddle_movement > minMovement)
   {
     if (arduboy.pressed(LEFT_BUTTON))
     {
-      xPaddle -= 2;
+      paddle_movement -= 2;
+      paddle_movement = paddle_movement < minMovement ? minMovement : paddle_movement;
     }
   }
 }
@@ -141,8 +151,8 @@ void moveBall()
     //Lose a life if bottom edge hit
 //    if (yb >= 64)
 //    {
-//      arduboy.drawRect(xPaddle, 63, 11, 1, 0);
-//      xPaddle = 54;
+//      arduboy.drawRect(paddle_movement, 63, 11, 1, 0);
+//      paddle_movement = 54;
 //      yb = 60;
 //      released = false;
 //      lives--;
@@ -175,10 +185,12 @@ void moveBall()
     }
 
     //Bounce off paddle
-    if (xb + 1 >= xPaddle && xb <= xPaddle + 5 && yb + 2 >= paddle_distance && yb <= paddle_distance+1)
+    byte player = 0;
+    Paddle paddle = getPaddle(paddle_movement, 0);
+    if (xb + 1 >= paddle.v1.x && xb <= paddle.v2.x + 5 && yb + 2 >= paddle.v1.y && yb <= paddle.v2.y+1)
     {
       dy = -dy;
-      dx = ((xb - (xPaddle + 6)) / 3); //Applies spin on the ball
+      dx = ((xb - (paddle_movement + 6)) / 3); //Applies spin on the ball
       // prevent straight bounce
       if (dx == 0) {
         dx = (random(0, 2) == 1) ? 1 : -1;
@@ -187,7 +199,7 @@ void moveBall()
     }
 
     //Bounce off Bricks
-    Block block;
+    Coordinates block;
     for (byte player = 0; player < NUM_PLAYERS; player++) {
       for (byte lineIndex = 0; lineIndex < ROWS; lineIndex++)
       {
@@ -249,7 +261,16 @@ void moveBall()
   else
   {
     //Ball follows paddle
-    xb = xPaddle + 5;
+    byte player = 0;
+    Paddle paddle = getPaddle(paddle_movement, player);
+    xb = paddle.v3.x;
+    yb = paddle.v3.y;
+    //Adding some distance from paddle
+    if (xb > yb) {
+      xb += 2;
+    } else {
+      yb += 2;
+    }
 
     //Release ball if FIRE pressed
     pad3 = arduboy.pressed(A_BUTTON) || arduboy.pressed(B_BUTTON);
@@ -266,8 +287,8 @@ void moveBall()
       {
         dx = -1;
       }
-      //Makes sure the ball heads upwards
-      dy = -1;
+      //Makes sure the ball heads downwards
+      dy = +1;
     }
     oldpad3 = pad3;
   }
@@ -293,11 +314,15 @@ void drawBall()
 
 void drawPaddle()
 {
-  arduboy.fillTriangle(xPaddle, paddle_distance, xPaddle + 4, paddle_distance, xPaddle + 2, paddle_distance + 3, 0);
-//  arduboy.drawRect(xPaddle, 63, 11, 1, 0);
+  Paddle paddle;
+  byte player = 0;
+  paddle = getPaddle(paddle_movement, player);
+  arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 0);
+//  arduboy.drawRect(paddle_movement, 63, 11, 1, 0);
   movePaddle();
-//  arduboy.drawRect(xPaddle, 63, 11, 1, 1);
-  arduboy.fillTriangle(xPaddle, paddle_distance, xPaddle + 4, paddle_distance, xPaddle + 2, paddle_distance + 3, 1);
+//  arduboy.drawRect(paddle_movement, 63, 11, 1, 1);
+  paddle = getPaddle(paddle_movement, player);
+  arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 1);
 }
 
 void drawLives()
@@ -352,8 +377,12 @@ void Score()
 }
 
 void newLevel() {
+  Paddle paddle;
+  byte player = 0;
+  
   //Undraw paddle
-  arduboy.fillTriangle(xPaddle, paddle_distance, xPaddle + 4, paddle_distance, xPaddle + 2, paddle_distance + 3, 0);
+  paddle = getPaddle(paddle_movement, player);
+  arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 0);
 
   //Undraw ball
   arduboy.drawPixel(xb,   yb,   0);
@@ -362,13 +391,13 @@ void newLevel() {
   arduboy.drawPixel(xb + 1, yb + 1, 0);
 
   //Alter various variables to reset the game
-  xPaddle = 54;
+  paddle_movement = 0; //paddle_fixed_distance;
   yb = 60;
   brickCount = 0;
   released = false;
 
   //Draws new bricks and resets their values
-  Block block;
+  Coordinates block;
   for (byte player = 0; player < NUM_PLAYERS; player++) {
     for (byte lineIndex = 0; lineIndex < ROWS; lineIndex++) {
       byte lineBlocks = COLUMNS + lineIndex * 2;
@@ -768,7 +797,7 @@ void loop()
   arduboy.display();
 }
 
-Block getBlock(byte lineIndex, byte blockIndex, byte player) {
+Coordinates getBlock(byte lineIndex, byte blockIndex, byte player) {
   boolean reverse_x = player % 2 == 1;   //players 1 and 3
   boolean reverse_y = player >= 2;       //players 2 and 3
   
@@ -792,4 +821,36 @@ Block getBlock(byte lineIndex, byte blockIndex, byte player) {
   
   return block;
 }
+
+Paddle getPaddle(byte paddle_movement, byte player) {
+  Paddle paddleCoordinates;
+  byte movement;
+  boolean isMovingHorizontally; // True if paddle is directed at horizontal
+  
+  if (player == 0) {
+    movement = paddle_movement % paddle_fixed_distance;
+    isMovingHorizontally = (paddle_movement / paddle_fixed_distance == 0);
+    
+    if (isMovingHorizontally) {
+      paddleCoordinates.v1.x = movement;
+      paddleCoordinates.v1.y = paddle_fixed_distance;
+      paddleCoordinates.v2.x = movement + 4;
+      paddleCoordinates.v2.y = paddle_fixed_distance;
+      paddleCoordinates.v3.x = movement + 2;
+      paddleCoordinates.v3.y = paddle_fixed_distance + 3;
+    } else {
+      movement = paddle_fixed_distance - movement;
+      paddleCoordinates.v1.y = movement;
+      paddleCoordinates.v1.x = paddle_fixed_distance;
+      paddleCoordinates.v2.y = movement + 4;
+      paddleCoordinates.v2.x = paddle_fixed_distance;
+      paddleCoordinates.v3.y = movement + 2;
+      paddleCoordinates.v3.x = paddle_fixed_distance + 3;
+    }
+  }
+
+  return paddleCoordinates;
+}
+
+
 
