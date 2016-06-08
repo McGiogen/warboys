@@ -18,8 +18,8 @@ Arduboy arduboy;
 #define SCREEN_MAX_Y 63
 
 #define COLUMNS 9          //Columns of bricks
-#define ROWS 2              //Rows of bricks
-#define BLOCK_LENGTH 4      //Rows of bricks
+#define ROWS 3              //Rows of bricks
+#define BLOCK_LENGTH 3      //Rows of bricks
 #define NUM_PLAYERS 4       //Number of players
 
 int dx = -1;        //Initial movement of ball
@@ -29,6 +29,7 @@ int yb;           //Balls starting possition
 boolean released;     //If the ball has been released by the player
 boolean paused = false;   //If the game has been paused
 byte xPaddle;       //X position of paddle
+int paddle_distance = (COLUMNS + (ROWS * 2)) / 2 * BLOCK_LENGTH + 2;  // (lineBlocks/2) * block_length + span
 boolean isHit[NUM_PLAYERS][ROWS][COLUMNS + ROWS * 2]; //Array of if bricks are hit or not
 boolean bounced = false; //Used to fix double bounce glitch
 byte lives = 3;       //Amount of lives
@@ -130,13 +131,14 @@ void moveBall()
       arduboy.tunes.tone(523, 250);
     }
 
-    //Lose a life if bottom edge hit
+    //Bounce off bottom edge
     if (yb >= 62)
     {
       yb = 60;
       dy = -dy;
       arduboy.tunes.tone(523, 250);
     }
+    //Lose a life if bottom edge hit
 //    if (yb >= 64)
 //    {
 //      arduboy.drawRect(xPaddle, 63, 11, 1, 0);
@@ -173,7 +175,7 @@ void moveBall()
     }
 
     //Bounce off paddle
-    if (xb + 1 >= xPaddle && xb <= xPaddle + 5 && yb + 2 >= 63 && yb <= 64)
+    if (xb + 1 >= xPaddle && xb <= xPaddle + 5 && yb + 2 >= paddle_distance && yb <= paddle_distance+1)
     {
       dy = -dy;
       dx = ((xb - (xPaddle + 6)) / 3); //Applies spin on the ball
@@ -291,11 +293,11 @@ void drawBall()
 
 void drawPaddle()
 {
-  arduboy.fillTriangle(xPaddle, 63, xPaddle + 4, 63, xPaddle + 2, 60, 0);
+  arduboy.fillTriangle(xPaddle, paddle_distance, xPaddle + 4, paddle_distance, xPaddle + 2, paddle_distance + 3, 0);
 //  arduboy.drawRect(xPaddle, 63, 11, 1, 0);
   movePaddle();
 //  arduboy.drawRect(xPaddle, 63, 11, 1, 1);
-  arduboy.fillTriangle(xPaddle, 63, xPaddle + 4, 63, xPaddle + 2, 60, 1);
+  arduboy.fillTriangle(xPaddle, paddle_distance, xPaddle + 4, paddle_distance, xPaddle + 2, paddle_distance + 3, 1);
 }
 
 void drawLives()
@@ -351,7 +353,7 @@ void Score()
 
 void newLevel() {
   //Undraw paddle
-  arduboy.fillTriangle(xPaddle, 63, xPaddle + 4, 63, xPaddle + 2, 60, 0);
+  arduboy.fillTriangle(xPaddle, paddle_distance, xPaddle + 4, paddle_distance, xPaddle + 2, paddle_distance + 3, 0);
 
   //Undraw ball
   arduboy.drawPixel(xb,   yb,   0);
