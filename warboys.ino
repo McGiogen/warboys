@@ -20,7 +20,11 @@ Arduboy arduboy;
 #define COLUMNS 9          //Columns of bricks
 #define ROWS 3              //Rows of bricks
 #define BLOCK_LENGTH 3      //Rows of bricks
+
 #define NUM_PLAYERS 4       //Number of players
+
+#define PADDLE_BASE 4       //Base of paddle triangle
+#define PADDLE_HEIGHT 3     //Height of paddle triangle
 
 int dx = -1;        //Initial movement of ball
 int dy = -1;        //Initial movement of ball
@@ -28,8 +32,8 @@ int xb;           //Balls starting possition
 int yb;           //Balls starting possition
 boolean released;     //If the ball has been released by the player
 boolean paused = false;   //If the game has been paused
-int paddle_fixed_distance = (COLUMNS + (ROWS * 2)) / 2 * BLOCK_LENGTH + 2;  // (lineBlocks/2) * block_length + span   //Fixed distance of the paddle from borders
-byte paddle_movement;       //X position of paddle
+byte paddle_fixed_distance = (COLUMNS + (ROWS * 2)) / 2 * BLOCK_LENGTH + 2;  // (lineBlocks/2) * block_length + span   //Fixed distance of the paddle from borders
+byte paddle_movement[NUM_PLAYERS];       //X position of paddle
 boolean isHit[NUM_PLAYERS][ROWS][COLUMNS + ROWS * 2]; //Array of if bricks are hit or not
 boolean bounced = false; //Used to fix double bounce glitch
 byte lives = 3;       //Amount of lives
@@ -90,23 +94,25 @@ void movePaddle()
 {
   //Move right
   byte maxMovement = paddle_fixed_distance * 2 - 1;
-  if (paddle_movement < maxMovement)
-  {
-    if (arduboy.pressed(RIGHT_BUTTON))
+  for (byte player = 0; player < NUM_PLAYERS; player++) {
+    if (paddle_movement[player] < maxMovement)
     {
-      paddle_movement += 2;
-      paddle_movement = paddle_movement > maxMovement ? maxMovement : paddle_movement;
+      if (arduboy.pressed(RIGHT_BUTTON))
+      {
+        paddle_movement[player] += 2;
+        paddle_movement[player] = paddle_movement[player] > maxMovement ? maxMovement : paddle_movement[player];
+      }
     }
-  }
-
-  //Move left
-  byte minMovement = 1;
-  if (paddle_movement > minMovement)
-  {
-    if (arduboy.pressed(LEFT_BUTTON))
+  
+    //Move left
+    byte minMovement = 1;
+    if (paddle_movement[player] > minMovement)
     {
-      paddle_movement -= 2;
-      paddle_movement = paddle_movement < minMovement ? minMovement : paddle_movement;
+      if (arduboy.pressed(LEFT_BUTTON))
+      {
+        paddle_movement[player] -= 2;
+        paddle_movement[player] = paddle_movement[player] < minMovement ? minMovement : paddle_movement[player];
+      }
     }
   }
 }
@@ -185,17 +191,18 @@ void moveBall()
     }
 
     //Bounce off paddle
-    byte player = 0;
-    Paddle paddle = getPaddle(paddle_movement, 0);
-    if (xb + 1 >= paddle.v1.x && xb <= paddle.v2.x + 5 && yb + 2 >= paddle.v1.y && yb <= paddle.v2.y+1)
-    {
-      dy = -dy;
-      dx = ((xb - (paddle_movement + 6)) / 3); //Applies spin on the ball
-      // prevent straight bounce
-      if (dx == 0) {
-        dx = (random(0, 2) == 1) ? 1 : -1;
+    for (byte player = 0; player < NUM_PLAYERS; player++) {
+      Paddle paddle = getPaddle(player);
+      if (xb + 1 >= paddle.v1.x && xb <= paddle.v2.x + 5 && yb + 2 >= paddle.v1.y && yb <= paddle.v2.y+1)
+      {
+        dy = -dy;
+        dx = ((xb - (paddle_movement[player] + 6)) / 3); //Applies spin on the ball
+        // prevent straight bounce
+        if (dx == 0) {
+          dx = (random(0, 2) == 1) ? 1 : -1;
+        }
+        arduboy.tunes.tone(200, 250);
       }
-      arduboy.tunes.tone(200, 250);
     }
 
     //Bounce off Bricks
@@ -262,7 +269,7 @@ void moveBall()
   {
     //Ball follows paddle
     byte player = 0;
-    Paddle paddle = getPaddle(paddle_movement, player);
+    Paddle paddle = getPaddle(player);
     xb = paddle.v3.x;
     yb = paddle.v3.y;
     //Adding some distance from paddle
@@ -315,14 +322,19 @@ void drawBall()
 void drawPaddle()
 {
   Paddle paddle;
-  byte player = 0;
-  paddle = getPaddle(paddle_movement, player);
-  arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 0);
-//  arduboy.drawRect(paddle_movement, 63, 11, 1, 0);
+  for (byte player = 0; player < NUM_PLAYERS; player++) {
+    paddle = getPaddle(player);
+    arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 0);
+  //  arduboy.drawRect(paddle_movement, 63, 11, 1, 0);
+  }
+  
   movePaddle();
-//  arduboy.drawRect(paddle_movement, 63, 11, 1, 1);
-  paddle = getPaddle(paddle_movement, player);
-  arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 1);
+  
+  for (byte player = 0; player < NUM_PLAYERS; player++) {
+  //  arduboy.drawRect(paddle_movement, 63, 11, 1, 1);
+    paddle = getPaddle(player);
+    arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 1);
+  }
 }
 
 void drawLives()
@@ -381,8 +393,10 @@ void newLevel() {
   byte player = 0;
   
   //Undraw paddle
-  paddle = getPaddle(paddle_movement, player);
-  arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 0);
+  for (byte player = 0; player < NUM_PLAYERS; player++) {
+    paddle = getPaddle(player);
+    arduboy.fillTriangle(paddle.v1.x, paddle.v1.y, paddle.v2.x, paddle.v2.y, paddle.v3.x, paddle.v3.y, 0);
+  }
 
   //Undraw ball
   arduboy.drawPixel(xb,   yb,   0);
@@ -391,7 +405,9 @@ void newLevel() {
   arduboy.drawPixel(xb + 1, yb + 1, 0);
 
   //Alter various variables to reset the game
-  paddle_movement = 0; //paddle_fixed_distance;
+  for (byte player = 0; player < NUM_PLAYERS; player++) {
+    paddle_movement[player] = 0; //paddle_fixed_distance;
+  }
   yb = 60;
   brickCount = 0;
   released = false;
@@ -822,31 +838,41 @@ Coordinates getBlock(byte lineIndex, byte blockIndex, byte player) {
   return block;
 }
 
-Paddle getPaddle(byte paddle_movement, byte player) {
+Paddle getPaddle(byte player) {
   Paddle paddleCoordinates;
-  byte movement;
-  boolean isMovingHorizontally; // True if paddle is directed at horizontal
-  
-  if (player == 0) {
-    movement = paddle_movement % paddle_fixed_distance;
-    isMovingHorizontally = (paddle_movement / paddle_fixed_distance == 0);
-    
-    if (isMovingHorizontally) {
-      paddleCoordinates.v1.x = movement;
-      paddleCoordinates.v1.y = paddle_fixed_distance;
-      paddleCoordinates.v2.x = movement + 4;
-      paddleCoordinates.v2.y = paddle_fixed_distance;
-      paddleCoordinates.v3.x = movement + 2;
-      paddleCoordinates.v3.y = paddle_fixed_distance + 3;
-    } else {
-      movement = paddle_fixed_distance - movement;
-      paddleCoordinates.v1.y = movement;
-      paddleCoordinates.v1.x = paddle_fixed_distance;
-      paddleCoordinates.v2.y = movement + 4;
-      paddleCoordinates.v2.x = paddle_fixed_distance;
-      paddleCoordinates.v3.y = movement + 2;
-      paddleCoordinates.v3.x = paddle_fixed_distance + 3;
-    }
+  byte movement = paddle_movement[player] % paddle_fixed_distance;
+  boolean isMovingHorizontally = (paddle_movement[player] / paddle_fixed_distance == 0); // True if paddle is directed at horizontal
+  boolean reverse_x = player % 2 == 1;   //players 1 and 3
+  boolean reverse_y = player >= 2;       //players 2 and 3
+  byte p1 = movement, p2 = paddle_fixed_distance;
+
+  //Setting of coordinates
+  if (isMovingHorizontally) {
+    paddleCoordinates.v1.x = p1;
+    paddleCoordinates.v1.y = p2;
+    paddleCoordinates.v2.x = p1 + PADDLE_BASE;
+    paddleCoordinates.v2.y = p2;
+    paddleCoordinates.v3.x = p1 + PADDLE_BASE/2;
+    paddleCoordinates.v3.y = p2 + PADDLE_HEIGHT;
+  } else {
+    p1 = paddle_fixed_distance - p1;
+    paddleCoordinates.v1.y = p1;
+    paddleCoordinates.v1.x = p2;
+    paddleCoordinates.v2.y = p1 + PADDLE_BASE;
+    paddleCoordinates.v2.x = p2;
+    paddleCoordinates.v3.y = p1 + PADDLE_BASE/2;
+    paddleCoordinates.v3.x = p2 + PADDLE_HEIGHT;
+  }
+
+  if (reverse_x) {
+    paddleCoordinates.v1.x = SCREEN_MAX_X - paddleCoordinates.v1.x;
+    paddleCoordinates.v2.x = SCREEN_MAX_X - paddleCoordinates.v2.x;
+    paddleCoordinates.v3.x = SCREEN_MAX_X - paddleCoordinates.v3.x;
+  }
+  if (reverse_y) {
+    paddleCoordinates.v1.y = SCREEN_MAX_Y - paddleCoordinates.v1.y;
+    paddleCoordinates.v2.y = SCREEN_MAX_Y - paddleCoordinates.v2.y;
+    paddleCoordinates.v3.y = SCREEN_MAX_Y - paddleCoordinates.v3.y;
   }
 
   return paddleCoordinates;
